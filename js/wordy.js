@@ -1,72 +1,66 @@
 export default {
 	loadWords,
-	findWords
+	findWords,
 };
-
 
 // ****************************
 
-var dict = [];
+var dict = {};
+var isWord = Symbol("is-word");
 
 function loadWords(wordList) {
 	// here our dictionary is just a (sorted) array of strings,
 	// nothing more fancy than that
-	dict = [ ...wordList ];
+	var nodeCount = 0;
+
+	if (Object.keys(dict).length > 0) {
+		dict = {};
+	}
+
+	for (let word of wordList) {
+		let node = dict;
+		for (let letter of word) {
+			if (!node[letter]) {
+				node[letter] = {
+					[isWord]: false,
+				};
+				nodeCount++;
+			}
+			node = node[letter];
+		}
+		node[isWord] = true;
+	}
 
 	return dict.length;
 }
 
-function findWords(input) {
+function findWords(input, prefix = "", node = dict) {
 	var words = [];
+	if (node[isWord]) {
+		words.push(prefix);
+	}
 
-	// consult every word in our dictionary
-	for (let word of dict) {
-		if (
-			// enough input characters to construct the word?
-			input.length >= word.length &&
-
-			// did any permutations of the input match?
-			checkWord(word,input)
-		) {
-			words.push(word);
+	for (let i = 0; i < input.length; i++) {
+		let currentLetter = input[i];
+		if (node[currentLetter]) {
+			let remainingLetters = [
+				...input.slice(0, i),
+				...input.slice(i + 1),
+			];
+			words.push(
+				...findWords(
+					remainingLetters,
+					prefix + currentLetter,
+					node[currentLetter]
+				)
+			);
 		}
 	}
 
+	// only de-duplicate the list on the final iteration
+	// outer recursion step right before we return
+	if (node === dict) {
+		words = [...new Set(words)];
+	}
 	return words;
-}
-
-function checkWord(word,input) {
-	return permute("",input);
-
-	// *************************
-
-	// permute the input letters (k! variations)
-	function permute(prefix,remaining) {
-		for (let i = 0; i < remaining.length; i++) {
-			let current = prefix + remaining[i];
-
-			// found a permutation that matched?
-			if (current == word) {
-				return true;
-			}
-			else if (
-				// any remaining input letters to permute and concat?
-				remaining.length > 1 &&
-
-				// current string shorter than the target word?
-				current.length < word.length
-			) {
-				// check all the permuted remaining letters
-				if (
-					permute(current,remaining.slice(0,i) + remaining.slice(i + 1))
-				) {
-					// propagate the match-found signal back up the
-					// recursion chain
-					return true;
-				}
-			}
-		}
-
-		return false;
-	}
 }
